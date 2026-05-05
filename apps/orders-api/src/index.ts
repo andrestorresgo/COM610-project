@@ -14,4 +14,7 @@ app.get("/health", (c) => {
   });
 });
 
-export default app;
+export default {
+  port: process.env.PORT,
+  fetch: app.fetch,
+};
