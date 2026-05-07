@@ -57,10 +57,59 @@ services:
 
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
+    # No ports exposed to the host — only internal services need Redis.
+    # Expose 6379 locally only if you need redis-cli access during development.
     networks:
       - agachadeats-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  core-api:
+    build:
+      context: ./apps/orders-api
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: ${CORE_API_PORT}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - agachadeats-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.core-api.rule=Host(`api.localhost`)"
+      - "traefik.http.services.core-api.loadbalancer.server.port=${CORE_API_PORT}"
+    restart: unless-stopped
+
+  tracking-api:
+    build:
+      context: ./apps/tracking-api
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: production
+      PORT: ${TRACKING_API_PORT}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - agachadeats-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tracking-api.rule=Host(`tracking.localhost`)"
+      - "traefik.http.services.tracking-api.loadbalancer.server.port=${TRACKING_API_PORT}"
+    restart: unless-stopped
 
 networks:
   agachadeats-network:
