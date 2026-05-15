@@ -56,8 +56,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -tags netgo \
       -o /app/server \
-      ./cmd/server
-# Adjust ./cmd/server to match your actual main package path.
+      ./cmd/tracking-api
+# Adjust ./cmd/tracking-api to match your actual main package path.
 
 
 # =============================================================================
