@@ -1,15 +1,23 @@
-import { Hono } from "hono";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { usersTable } from "./db/schema";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { swaggerUI } from "@hono/swagger-ui";
+import { ordersRouter } from "./routes/orders";
+import { usersRouter } from "./routes/users";
+import { restaurantsRouter } from "./routes/restaurants";
+import { categoriesRouter } from "./routes/categories";
+import { menuItemsRouter } from "./routes/menu-items";
+import { deliveriesRouter } from "./routes/deliveries";
 
-const db = drizzle(process.env.DATABASE_URL!);
-const app = new Hono();
+const app = new OpenAPIHono();
 
-app.get("/", async (c) => {
-  return c.json({
-    data: await db.select().from(usersTable),
-  });
+app.doc("/doc", {
+  openapi: "3.0.0",
+  info: {
+    version: "1.0.0",
+    title: "Orders API",
+  },
 });
+
+app.get("/ui", swaggerUI({ url: "/doc" }));
 
 app.get("/health", (c) => {
   return c.json({
@@ -18,6 +26,13 @@ app.get("/health", (c) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.route("/orders", ordersRouter);
+app.route("/users", usersRouter);
+app.route("/restaurants", restaurantsRouter);
+app.route("/categories", categoriesRouter);
+app.route("/menu-items", menuItemsRouter);
+app.route("/deliveries", deliveriesRouter);
 
 export default {
   port: process.env.PORT,
