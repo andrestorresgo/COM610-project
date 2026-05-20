@@ -12,9 +12,6 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
       - agachadeats-network
-    # Traefik does NOT depend on postgres or rabbitmq — it only needs the app
-    # containers to register themselves via Docker labels, which happens when
-    # they start. Declaring DB deps here was incorrect and is removed.
 
   postgres:
     image: postgres:alpine
@@ -55,8 +52,7 @@ services:
 
   redis:
     image: redis:alpine
-    # No ports exposed to the host — only internal services need Redis.
-    # Expose 6379 locally only if you need redis-cli access during development.
+    # TODO: remove this port in prod
     ports:
       - "6379:6379"
     networks:
@@ -71,13 +67,9 @@ services:
     build:
       context: ./apps/orders-api
       dockerfile: Dockerfile
-      target: dev  # Build only up to the dev stage; skip the production bundle step.
+      target: dev
     volumes:
-      # Mount local source so Bun's --hot flag picks up file changes immediately.
       - ./apps/orders-api:/app
-      # Named volume to protect node_modules installed during the image build.
-      # Without this, the source mount above would shadow /app/node_modules,
-      # leaving the container with no packages at runtime.
       - core-api-node-modules:/app/node_modules
     environment:
       NODE_ENV: development
@@ -95,24 +87,19 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.core-api.rule=Host(`api.localhost`)"
       - "traefik.http.services.core-api.loadbalancer.server.port=${CORE_API_PORT}"
-    # No restart policy in dev: if the process crashes you want to see it
-    # stay dead so the error is obvious, not silently restarted.
 
   tracking-api:
     build:
       context: ./apps/tracking-api
       dockerfile: Dockerfile
-      target: dev  # Build only up to the dev stage; skip the production binary compilation.
+      target: dev
     volumes:
-      # Mount local source so Air detects file changes and recompiles.
       - ./apps/tracking-api:/app
-      # Named volume to protect the Go module cache and Air binary installed
-      # during the image build from being shadowed by the source mount.
       - tracking-api-gopath:/go
     environment:
       APP_ENV: development
       PORT: ${TRACKING_API_PORT}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
     depends_on:
       redis:
@@ -125,7 +112,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.tracking-api.rule=Host(`tracking.localhost`)"
       - "traefik.http.services.tracking-api.loadbalancer.server.port=${TRACKING_API_PORT}"
-    # No restart policy in dev (see note in core-api above).
 
 networks:
   agachadeats-network:
@@ -134,7 +120,5 @@ networks:
 volumes:
   postgres-data:
   rabbitmq-data:
-  # These named volumes shadow the respective directories inside the containers
-  # so that the host source-code mounts don't wipe installed packages/binaries.
   core-api-node-modules:
   tracking-api-gopath:
