@@ -5,6 +5,7 @@ go 1.26.2
 tool github.com/air-verse/air
 
 require (
+	github.com/gorilla/websocket v1.5.3
 	github.com/rabbitmq/amqp091-go v1.11.0
 	github.com/redis/go-redis/v9 v9.19.0
 )

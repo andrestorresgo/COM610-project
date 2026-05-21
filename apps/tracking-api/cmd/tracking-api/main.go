@@ -7,15 +7,18 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"tracking-api/internal/broker"
 	"tracking-api/internal/cache"
+	"tracking-api/internal/ws"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":    "healthy",
 		"service":   "tracking-api",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -24,7 +27,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": "Hello from Tracking API!",
 	})
 }
@@ -115,11 +118,53 @@ func main() {
 		}
 	}
 
+	// Initialize the Connection Hub
+	hub := ws.NewHub()
+	go hub.Run()
+
+	// Set up http routes
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/ws/track", func(w http.ResponseWriter, r *http.Request) {
+		ws.ServeWs(hub, redisStore, w, r)
+	})
 
-	log.Printf("Tracking API starting on port %s\n", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Could not start server: %v\n", err)
+	// Setup Graceful Shutdown
+	srv := &http.Server{
+		Addr: ":" + port,
 	}
+
+	// Channel to listen for OS signals
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+
+	// Run HTTP server in a goroutine
+	go func() {
+		log.Printf("Tracking API starting on port %s\n", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Could not start server: %v\n", err)
+		}
+	}()
+
+	// Block until a signal is received
+	sig := <-stopChan
+	log.Printf("Received signal: %v. Initiating graceful shutdown...", sig)
+
+	// Context for HTTP shutdown
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelShutdown()
+
+	// Shutdown the HTTP server first to stop accepting new connections
+	if err := srv.Shutdown(ctxShutdown); err != nil {
+		log.Printf("HTTP server Shutdown error: %v", err)
+	} else {
+		log.Println("HTTP server shut down successfully.")
+	}
+
+	// Stop the hub (which closes all client WebSockets)
+	hub.Stop()
+
+	// Wait a moment for client goroutines to clean up
+	time.Sleep(1 * time.Second)
+	log.Println("Tracking API exited cleanly.")
 }

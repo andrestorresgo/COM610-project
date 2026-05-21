@@ -18,6 +18,11 @@ func NewRedisStore(redisURL string) (*RedisStore, error) {
 		return nil, fmt.Errorf("invalid redis url: %w", err)
 	}
 
+	// Configure automatic retries and exponential backoff
+	opts.MaxRetries = 5
+	opts.MinRetryBackoff = 8 * time.Millisecond
+	opts.MaxRetryBackoff = 512 * time.Millisecond
+
 	client := redis.NewClient(opts)
 
 	// Ping the server to ensure connection is established
