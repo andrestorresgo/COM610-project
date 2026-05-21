@@ -60,8 +60,15 @@ type Client struct {
 	// Courier identifier
 	CourierID string
 
+	// Client identifier (for customers tracking orders)
+	ClientID string
+
 	// Redis cache store reference to save location updates
 	redisStore *cache.RedisStore
+
+	// context and cancel for tracking client connection lifecycle
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // ReadPump pumps messages from the websocket connection to the hub/cache.
@@ -71,6 +78,7 @@ type Client struct {
 // reads from this goroutine.
 func (c *Client) ReadPump() {
 	defer func() {
+		c.cancel()
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -109,6 +117,14 @@ func (c *Client) ReadPump() {
 			log.Printf("[Client] Failed to save GPS coordinates to Redis: %v", err)
 		} else {
 			log.Printf("[Client] Saved location for order %s: (%f, %f)", payload.OrderID, payload.Longitude, payload.Latitude)
+		}
+
+		// Also update the courier location in activeCouriersKey and their active timestamp
+		if c.CourierID != "" && c.CourierID != "unknown_courier" {
+			ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+			_ = c.redisStore.UpdateCourierLocation(ctx2, c.CourierID, payload.Longitude, payload.Latitude)
+			_ = c.redisStore.UpdateCourierActiveTime(ctx2, c.CourierID)
+			cancel2()
 		}
 	}
 }
@@ -175,16 +191,22 @@ func ServeWs(hub *Hub, redisStore *cache.RedisStore, w http.ResponseWriter, r *h
 	}
 
 	courierID := r.URL.Query().Get("courier_id")
-	if courierID == "" {
+	clientID := r.URL.Query().Get("client_id")
+	if courierID == "" && clientID == "" {
 		courierID = "unknown_courier"
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	client := &Client{
 		hub:        hub,
 		conn:       conn,
 		send:       make(chan []byte, 256),
 		CourierID:  courierID,
+		ClientID:   clientID,
 		redisStore: redisStore,
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 	client.hub.register <- client
 

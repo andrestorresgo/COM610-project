@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
-import { ordersTable, orderItemsTable } from "../db/schema";
+import { ordersTable, orderItemsTable, deliveriesTable } from "../db/schema";
 import { createOrderDto, updateOrderStatusDto } from "../dto/order.dto";
 import { publishEvent } from "../lib/rabbitmq";
 import { customValidationHook } from "../lib/hooks";
@@ -273,8 +273,18 @@ ordersRouter.openapi(updateOrderStatusRoute, async (c) => {
 
     // Publish event if status is READY_FOR_DELIVERY
     if (status === "READY_FOR_DELIVERY") {
+      // Find courier_id associated with this order
+      const [delivery] = await db
+        .select()
+        .from(deliveriesTable)
+        .where(eq(deliveriesTable.order_id, updatedOrder.id));
+
+      const courierId = delivery ? delivery.courier_id : 1; // Default courier ID if not assigned yet
+
       const eventPayload = {
         orderId: updatedOrder.id,
+        clientId: updatedOrder.user_id,
+        courierId: courierId,
         restaurantId: updatedOrder.restaurant_id,
         deliveryAddress: updatedOrder.delivery_address,
         timestamp: new Date().toISOString(),
@@ -283,7 +293,7 @@ ordersRouter.openapi(updateOrderStatusRoute, async (c) => {
       // Using 'order.ready' as the routing key
       await publishEvent("order.ready", eventPayload);
       console.log(
-        `Published order.ready event for Order ID: ${updatedOrder.id}`,
+        `Published order.ready event for Order ID: ${updatedOrder.id}, Client: ${updatedOrder.user_id}, Courier: ${courierId}`,
       );
     }
 

@@ -13,6 +13,7 @@ import (
 
 	"tracking-api/internal/broker"
 	"tracking-api/internal/cache"
+	"tracking-api/internal/rabbitmq"
 	"tracking-api/internal/ws"
 )
 
@@ -76,7 +77,11 @@ func main() {
 		log.Fatalf("Could not connect to Redis after %d attempts: %v", maxRetries, err)
 	}
 
-	// 1.5. Connect to RabbitMQ
+	// Initialize the Connection Hub
+	hub := ws.NewHub(redisStore)
+	go hub.Run()
+
+	// 1.5. Connect to RabbitMQ for ping events
 	rabbitBroker, err := broker.Connect("", 5)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to RabbitMQ: %v", err)
@@ -88,6 +93,11 @@ func main() {
 			log.Println("Successfully started RabbitMQ consumer for ping events")
 		}
 	}
+
+	// Start the Order Ready RabbitMQ Consumer
+	rabbitmqConsumer := rabbitmq.NewConsumer("", hub)
+	rabbitmqConsumer.Start()
+	defer rabbitmqConsumer.Close()
 
 	// 2 & 3. Hardcode a dummy coordinate and call UpdateCourierLocation
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -117,10 +127,6 @@ func main() {
 			log.Printf("- Courier: %s (Distance: %f)", c.Name, c.Dist)
 		}
 	}
-
-	// Initialize the Connection Hub
-	hub := ws.NewHub()
-	go hub.Run()
 
 	// Set up http routes
 	http.HandleFunc("/health", healthHandler)
@@ -160,6 +166,9 @@ func main() {
 	} else {
 		log.Println("HTTP server shut down successfully.")
 	}
+
+	// Stop the RabbitMQ consumer
+	rabbitmqConsumer.Close()
 
 	// Stop the hub (which closes all client WebSockets)
 	hub.Stop()

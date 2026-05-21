@@ -21,7 +21,7 @@ func TestServeWs(t *testing.T) {
 		t.Skipf("Skipping integration test: Redis not accessible on localhost:6379: %v", err)
 	}
 
-	hub := NewHub()
+	hub := NewHub(redisStore)
 	go hub.Run()
 	defer hub.Stop()
 
