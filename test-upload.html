@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agachadeats Cloud Upload Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: rgba(22, 28, 45, 0.45);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent: #06b6d4;
+      --success: #10b981;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+      background-attachment: fixed;
+      font-family: var(--font-sans);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      z-index: 10;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      animation: fadeInDown 0.8s ease-out;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #9ca3af);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      font-weight: 300;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 2.5rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      margin-bottom: 2rem;
+      animation: fadeInUp 0.8s ease-out;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 0.875rem 1.2rem;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    }
+
+    /* Drag & Drop Area */
+    .dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.01);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(6, 182, 212, 0.04);
+      transform: translateY(-2px);
+    }
+
+    .dropzone-icon {
+      font-size: 3rem;
+      transition: transform 0.3s ease;
+      color: var(--accent);
+    }
+
+    .dropzone:hover .dropzone-icon {
+      transform: translateY(-5px);
+    }
+
+    .dropzone-text {
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .dropzone-subtext {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    /* File Preview */
+    .preview-box {
+      display: none;
+      width: 100%;
+      background: rgba(11, 15, 25, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 1rem;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .preview-thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .preview-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .preview-name {
+      font-weight: 500;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preview-size {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .btn-remove {
+      background: none;
+      border: none;
+      color: var(--error);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.5rem;
+      border-radius: 6px;
+      transition: background 0.3s;
+    }
+
+    .btn-remove:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Upload Button */
+    .btn-upload {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      padding: 1rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+      margin-top: 1.5rem;
+    }
+
+    .btn-upload:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-upload:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-upload:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Progress & Logs */
+    .status-container {
+      display: none;
+      margin-top: 2rem;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    .progress-bar-container {
+      height: 8px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(to right, var(--primary), var(--accent));
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-status {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    /* Console Logger */
+    .console-card {
+      background: #060913;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #9cdcfe;
+      overflow: hidden;
+    }
+
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 0.75rem;
+    }
+
+    .console-title {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .console-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .dot-red { background-color: var(--error); }
+    .dot-yellow { background-color: var(--warning); }
+    .dot-green { background-color: var(--success); }
+
+    .console-output {
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    .console-output::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .console-output::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .log-line {
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-info { color: #9cdcfe; }
+    .log-success { color: var(--success); }
+    .log-warn { color: var(--warning); }
+    .log-error { color: var(--error); }
+    .log-url { color: var(--accent); text-decoration: underline; cursor: pointer; }
+
+    /* Success Card Banner */
+    .success-banner {
+      display: none;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 1.5rem;
+      color: var(--success);
+      align-items: flex-start;
+      gap: 0.75rem;
+      animation: zoomIn 0.4s ease-out;
+    }
+
+    .success-banner svg {
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    /* Keyframes */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes zoomIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .card {
+        padding: 1.5rem;
+      }
+      h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="logo-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Agachadeats Core
+      </div>
+      <h1>Direct S3 Cloud Upload</h1>
+      <p class="subtitle">Offload network operations directly to AWS infrastructure</p>
+    </header>
+
+    <div class="card">
+      <div class="form-group">
+        <label for="api-url">Core API Server URL</label>
+        <input type="text" id="api-url" class="input-field" value="http://localhost:3000/images/upload-url">
+      </div>
+
+      <div class="form-group">
+        <label>Select Image Asset</label>
+        <div class="dropzone" id="drop-zone">
+          <div class="dropzone-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="dropzone-text">Drag & drop image here or click to browse</div>
+          <div class="dropzone-subtext">Supported formats: JPEG, PNG, WEBP, GIF (Max 10MB)</div>
+          <input type="file" id="file-input" class="file-input" accept="image/jpeg,image/png,image/webp,image/gif">
+        </div>
+
+        <div class="preview-box" id="preview-box">
+          <img src="" alt="Thumbnail" class="preview-thumb" id="preview-img">
+          <div class="preview-info">
+            <div class="preview-name" id="preview-name">filename.jpg</div>
+            <div class="preview-size" id="preview-size">0 KB</div>
+          </div>
+          <button type="button" class="btn-remove" id="btn-remove">Remove</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-upload" id="btn-upload" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Execute Direct Upload
+      </button>
+
+      <div class="success-banner" id="success-banner">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div>
+          <strong style="display:block;margin-bottom:0.2rem">Upload Verified!</strong>
+          <span style="font-size:0.9rem" id="success-text">Asset is securely saved in the S3 bucket.</span>
+        </div>
+      </div>
+
+      <div class="status-container" id="status-container">
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-status">
+          <span id="status-text">Idle</span>
+          <span id="percent-text">0%</span>
+        </div>
+
+        <div class="console-card">
+          <div class="console-header">
+            <span class="console-title">Execution Console</span>
+            <div class="console-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+          </div>
+          <div class="console-output" id="console-output">
+            <!-- Logs appear here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const previewBox = document.getElementById('preview-box');
+    const previewImg = document.getElementById('preview-img');
+    const previewName = document.getElementById('preview-name');
+    const previewSize = document.getElementById('preview-size');
+    const btnRemove = document.getElementById('btn-remove');
+    const btnUpload = document.getElementById('btn-upload');
+    const apiUrlInput = document.getElementById('api-url');
+    const statusContainer = document.getElementById('status-container');
+    const progressBar = document.getElementById('progress-bar');
+    const statusText = document.getElementById('status-text');
+    const percentText = document.getElementById('percent-text');
+    const consoleOutput = document.getElementById('console-output');
+    const successBanner = document.getElementById('success-banner');
+    const successText = document.getElementById('success-text');
+
+    let selectedFile = null;
+
+    // --- Helper Logger ---
+    function log(message, type = 'info') {
+      const line = document.createElement('div');
+      line.className = `log-line log-${type}`;
+      
+      if (type === 'url') {
+        const link = document.createElement('a');
+        link.href = message;
+        link.target = '_blank';
+        link.className = 'log-url';
+        link.textContent = message;
+        line.appendChild(link);
+      } else {
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      }
+      
+      consoleOutput.appendChild(line);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function clearLogs() {
+      consoleOutput.innerHTML = '';
+    }
+
+    // --- Drag & Drop Handlers ---
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length) handleFileSelect(files[0]);
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFileSelect(e.target.files[0]);
+    });
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+      }
+      selectedFile = file;
+      
+      // Update UI
+      previewName.textContent = file.name;
+      previewSize.textContent = formatBytes(file.size);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        dropZone.style.display = 'none';
+        previewBox.style.display = 'flex';
+        btnUpload.removeAttribute('disabled');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    btnRemove.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      previewBox.style.display = 'none';
+      dropZone.style.display = 'flex';
+      btnUpload.setAttribute('disabled', 'true');
+      successBanner.style.display = 'none';
+      statusContainer.style.display = 'none';
+    });
+
+    // --- Direct-to-Cloud Upload Flow ---
+    btnUpload.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      successBanner.style.display = 'none';
+      statusContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      percentText.textContent = '0%';
+      clearLogs();
+      
+      btnUpload.setAttribute('disabled', 'true');
+      btnRemove.setAttribute('disabled', 'true');
+
+      try {
+        const apiUrl = apiUrlInput.value.trim();
+        log(`Step 1: Fetching signed S3 upload URL from Core API...`, 'info');
+        log(`Endpoint: ${apiUrl}?contentType=${encodeURIComponent(selectedFile.type)}`, 'info');
+
+        statusText.textContent = 'Acquiring pre-signed URL...';
+        progressBar.style.width = '20%';
+        percentText.textContent = '20%';
+
+        // --- Step A: Request signed S3 URL from Hono backend ---
+        let response;
+        try {
+          response = await fetch(`${apiUrl}?contentType=${encodeURIComponent(selectedFile.type)}`);
+        } catch (fetchErr) {
+          throw new Error(`Failed to get upload URL: Network error or CORS block from Hono service. Detail: ${fetchErr.message}`);
+        }
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(`Failed to get upload URL: Server returned status ${response.status}. Reason: ${errData.error || 'Unknown'}`);
+        }
+
+        const data = await response.json();
+        const { uploadUrl, fileKey } = data;
+
+        if (!uploadUrl || !fileKey) {
+          throw new Error('Failed to get upload URL: Backend returned incomplete payload (missing uploadUrl or fileKey)');
+        }
+
+        log(`Successfully authorized. File will be named: ${fileKey}`, 'success');
+        log(`Pre-signed S3 URL generated (expires in 60s):`, 'info');
+        log(uploadUrl, 'url');
+
+        progressBar.style.width = '40%';
+        percentText.textContent = '40%';
+        statusText.textContent = 'Uploading directly to AWS S3...';
+        log(`Step 2: Performing direct PUT stream to AWS S3 bucket...`, 'info');
+
+        // --- Step B: PUT binary stream to S3 directly ---
+        let s3Response;
+        try {
+          s3Response = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': selectedFile.type
+            },
+            body: selectedFile
+          });
+        } catch (s3Err) {
+          throw new Error(`Failed to upload to AWS: Connection failed during direct-to-S3 transfer. Detail: ${s3Err.message}`);
+        }
+
+        if (!s3Response.ok) {
+          throw new Error(`Failed to upload to AWS: S3 bucket rejected the upload. Status: ${s3Response.status} ${s3Response.statusText}`);
+        }
+
+        progressBar.style.width = '100%';
+        percentText.textContent = '100%';
+        statusText.textContent = 'Upload Complete';
+        log(`Direct-to-S3 upload succeeded! HTTP Status: ${s3Response.status}`, 'success');
+
+        // Extract raw URL (excluding query parameters)
+        const finalAssetUrl = uploadUrl.split('?')[0];
+        log(`Asset is publicly accessible (if bucket permissions allow) at:`, 'success');
+        log(finalAssetUrl, 'url');
+
+        successText.innerHTML = `Successfully uploaded as <code>${fileKey}</code>.<br><a href="${finalAssetUrl}" target="_blank" style="color:var(--success);text-decoration:underline;word-break:break-all">${finalAssetUrl}</a>`;
+        successBanner.style.display = 'flex';
+
+      } catch (err) {
+        log(`Execution halted: ${err.message}`, 'error');
+        statusText.textContent = 'Execution Failed';
+        progressBar.style.backgroundColor = 'var(--error)';
+        progressBar.style.width = '100%';
+      } finally {
+        btnUpload.removeAttribute('disabled');
+        btnRemove.removeAttribute('disabled');
+      }
+    });
+  </script>
+</body>
+</html>
