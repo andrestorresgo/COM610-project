@@ -143,7 +143,13 @@ const createRestaurantRoute = createRoute({
 restaurantsRouter.openapi(createRestaurantRoute, async (c) => {
   const body = c.req.valid("json");
   try {
-    const [result] = await db.insert(restaurantsTable).values(body).returning();
+    const [result] = await db
+      .insert(restaurantsTable)
+      .values({
+        ...body,
+        image_url: body.image_url ?? "",
+      })
+      .returning();
     return c.json({ data: result } as any, 201);
   } catch (error) {
     console.error("Failed to create restaurant:", error);

@@ -159,7 +159,13 @@ const createMenuItemRoute = createRoute({
 menuItemsRouter.openapi(createMenuItemRoute, async (c) => {
   const body = c.req.valid("json");
   try {
-    const [result] = await db.insert(menuItemsTable).values(body).returning();
+    const [result] = await db
+      .insert(menuItemsTable)
+      .values({
+        ...body,
+        image_url: body.image_url ?? "",
+      })
+      .returning();
     return c.json({ data: result } as any, 201);
   } catch (error) {
     console.error("Failed to create menu item:", error);

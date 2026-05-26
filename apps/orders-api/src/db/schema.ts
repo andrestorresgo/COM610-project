@@ -69,7 +69,7 @@ export const restaurantsTable = pgTable(
     name: varchar({ length: 255 }).notNull(),
     address: varchar({ length: 255 }).notNull(),
     status: restaurantStatusEnum().notNull().default("OPEN"),
-    image_url: varchar({ length: 255 }).notNull(),
+    image_url: varchar({ length: 512 }).notNull().default(''),
     ...timestamps,
   },
   (table) => ({
@@ -111,7 +111,7 @@ export const menuItemsTable = pgTable(
     description: varchar({ length: 255 }).notNull(),
     is_available: boolean().notNull().default(true),
     price: integer().notNull(),
-    image_url: varchar({ length: 255 }).notNull(),
+    image_url: varchar({ length: 512 }).notNull().default(''),
     ...timestamps,
   },
   (table) => ({

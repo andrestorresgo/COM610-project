@@ -7,7 +7,7 @@ export const createMenuItemDto = z.object({
   description: z.string().min(1).max(255),
   is_available: z.boolean().optional(),
   price: z.number().int().nonnegative(),
-  image_url: z.string().url().max(255),
+  image_url: z.string().max(512).optional(),
 });
 
 export const updateMenuItemDto = z.object({
@@ -15,5 +15,5 @@ export const updateMenuItemDto = z.object({
   description: z.string().min(1).max(255).optional(),
   is_available: z.boolean().optional(),
   price: z.number().int().nonnegative().optional(),
-  image_url: z.string().url().max(255).optional(),
+  image_url: z.string().max(512).optional(),
 });
