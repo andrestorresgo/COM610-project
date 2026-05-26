@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	_ "image/png"  // register PNG decoder
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -107,41 +105,36 @@ func handler(ctx context.Context, event events.S3Event) error {
 
 func processRecord(ctx context.Context, record events.S3EventRecord) error {
 	srcBucket := record.S3.Bucket.Name
-	srcKey := record.S3.Object.Key
 
-	log.Printf("Processing s3://%s/%s", srcBucket, srcKey)
+	// CRITICAL: S3 event notifications URL-encode the object key.
+	// Characters like spaces become "+", and special chars become "%XX".
+	// We MUST decode before calling GetObject, or we'll request the wrong key.
+	srcKey, err := url.QueryUnescape(record.S3.Object.Key)
+	if err != nil {
+		// If decoding fails, fall back to raw key
+		srcKey = record.S3.Object.Key
+		log.Printf("WARN: failed to URL-decode key %q, using raw: %v", record.S3.Object.Key, err)
+	}
+
+	log.Printf("Processing s3://%s/%s (raw event key: %s)", srcBucket, srcKey, record.S3.Object.Key)
 
 	// 1. Download raw image + its metadata from S3.
-	rawBytes, s3Meta, err := downloadObject(ctx, srcBucket, srcKey)
+	rawBytes, s3Meta, contentType, err := downloadObject(ctx, srcBucket, srcKey)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
+	}
+	log.Printf("Downloaded %d bytes, Content-Type: %s", len(rawBytes), contentType)
+
+	// Log the first few bytes (magic bytes) for debugging image format detection.
+	if len(rawBytes) >= 16 {
+		log.Printf("Magic bytes (hex): % x", rawBytes[:16])
 	}
 
 	// 2. Decode the image (JPEG / PNG / GIF supported via stdlib decoders).
 	//    NOTE: GIF → WebP drops animation; only the first frame is encoded.
-	//    If animated GIFs matter to your product, reject them here or handle
-	//    separately before this Lambda processes them.
 	img, format, err := image.Decode(bytes.NewReader(rawBytes))
 	if err != nil {
-		log.Printf("Standard decode failed for %s: %v. Attempting robust decoders...", srcKey, err)
-
-		// A. Try to extract from multipart form-data (e.g. if client uploaded via multipart POST/PUT)
-		if extractedBytes, multipartErr := tryExtractMultipart(rawBytes); multipartErr == nil {
-			log.Printf("Successfully extracted binary from multipart form-data for %s", srcKey)
-			rawBytes = extractedBytes
-		}
-
-		// B. Try to decode base64 (e.g. if client uploaded base64 string or data URI)
-		if decodedBytes, base64Err := tryDecodeBase64(rawBytes); base64Err == nil {
-			log.Printf("Successfully decoded base64 payload for %s", srcKey)
-			rawBytes = decodedBytes
-		}
-
-		// Retry image.Decode with potentially extracted/decoded bytes
-		img, format, err = image.Decode(bytes.NewReader(rawBytes))
-		if err != nil {
-			return fmt.Errorf("decode (%s) after extraction: %w", srcKey, err)
-		}
+		return fmt.Errorf("decode (%s): %w", srcKey, err)
 	}
 	log.Printf("Decoded %s as %s (%dx%d)",
 		srcKey, format, img.Bounds().Dx(), img.Bounds().Dy())
@@ -179,20 +172,27 @@ func processRecord(ctx context.Context, record events.S3EventRecord) error {
 
 // ── S3 helpers ───────────────────────────────────────────────────────────────
 
-// downloadObject fetches the raw image bytes and its user-defined metadata.
-func downloadObject(ctx context.Context, bucket, key string) ([]byte, map[string]string, error) {
+// downloadObject fetches the raw image bytes, its user-defined metadata,
+// and the Content-Type reported by S3.
+func downloadObject(ctx context.Context, bucket, key string) ([]byte, map[string]string, string, error) {
 	out, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	defer out.Body.Close()
 
 	data, err := io.ReadAll(out.Body)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
+	}
+
+	// Capture Content-Type for diagnostic logging.
+	ct := ""
+	if out.ContentType != nil {
+		ct = *out.ContentType
 	}
 
 	// Normalise S3 user metadata keys to lowercase for consistent access.
@@ -203,7 +203,7 @@ func downloadObject(ctx context.Context, bucket, key string) ([]byte, map[string
 		meta[strings.ToLower(k)] = v
 	}
 
-	return data, meta, nil
+	return data, meta, ct, nil
 }
 
 // uploadObject writes the WebP bytes and carries forward the original S3 metadata.
@@ -322,89 +322,4 @@ func requireEnv(name string) string {
 		log.Fatalf("required environment variable %q is not set", name)
 	}
 	return v
-}
-
-// tryExtractMultipart attempts to parse multipart form-data if the bytes start with "--".
-func tryExtractMultipart(data []byte) ([]byte, error) {
-	trimmed := strings.TrimSpace(string(data))
-	if !strings.HasPrefix(trimmed, "--") {
-		return nil, fmt.Errorf("not multipart")
-	}
-
-	// Find the boundary (first line without leading "--" and trailing whitespace)
-	firstLine := ""
-	for _, b := range data {
-		if b == '\r' || b == '\n' {
-			break
-		}
-		firstLine += string(b)
-	}
-	boundary := strings.TrimPrefix(firstLine, "--")
-	boundary = strings.TrimSpace(boundary)
-	if boundary == "" || len(boundary) > 70 {
-		return nil, fmt.Errorf("invalid boundary")
-	}
-
-	// Try reading as a multipart form
-	reader := multipart.NewReader(bytes.NewReader(data), boundary)
-	
-	// NextPart loops through parts
-	for {
-		part, err := reader.NextPart()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		
-		// Read content of this part
-		partData, err := io.ReadAll(part)
-		part.Close()
-		if err != nil {
-			continue
-		}
-
-		// Check if this part contains an image or if the data can be decoded as an image.
-		if _, _, err := image.Decode(bytes.NewReader(partData)); err == nil {
-			return partData, nil
-		}
-		
-		// Or try to base64 decode it
-		if decoded, err := tryDecodeBase64(partData); err == nil {
-			if _, _, err := image.Decode(bytes.NewReader(decoded)); err == nil {
-				return decoded, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("no valid image part found in multipart form-data")
-}
-
-// tryDecodeBase64 checks if the bytes represent a base64 string or data URI and decodes them.
-func tryDecodeBase64(data []byte) ([]byte, error) {
-	str := string(data)
-	str = strings.TrimSpace(str)
-
-	// Check for Data URI prefix (e.g., "data:image/png;base64,")
-	if strings.HasPrefix(str, "data:") {
-		parts := strings.SplitN(str, ",", 2)
-		if len(parts) == 2 {
-			str = parts[1]
-		}
-	}
-
-	// Try standard base64 decoding
-	decoded, err := base64.StdEncoding.DecodeString(str)
-	if err == nil {
-		return decoded, nil
-	}
-
-	// Try URL-safe base64 decoding
-	decoded, err = base64.URLEncoding.DecodeString(str)
-	if err == nil {
-		return decoded, nil
-	}
-
-	return nil, fmt.Errorf("not valid base64")
 }
