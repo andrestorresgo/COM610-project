@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-db
+  namespace: delivery-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      # CRITICAL: Forces this database pod onto your master infrastructure node (server-241)
+      nodeSelector:
+        topology.kubernetes.io/role: master-infra
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_DB
+              value: delivery_db
+            - name: POSTGRES_USER
+              value: core_admin
+            - name: POSTGRES_PASSWORD
+              value: temporary_dev_secret_change_me
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          # Resiliency: Ensures the cluster doesn't route traffic here until Postgres is completely ready
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "core_admin", "-d", "delivery_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: delivery-platform
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
