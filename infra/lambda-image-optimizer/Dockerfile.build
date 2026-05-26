@@ -1,0 +1,26 @@
+# Dockerfile.build
+#
+# Builds the image-optimizer Lambda binary for Linux/arm64 with CGO enabled.
+# Matches the Amazon Linux 2023 environment used by provided.al2023 Lambda runtime.
+#
+# This is a BUILD-ONLY image — it is never deployed anywhere.
+
+FROM --platform=linux/amd64 public.ecr.aws/amazonlinux/amazonlinux:2023
+
+# Install Go, libwebp dev headers, and build tools
+RUN dnf install -y \
+    golang \
+    libwebp-devel \
+    gcc \
+    zip \
+    && dnf clean all
+
+# Pre-cache Go module downloads at image build time (optional optimisation).
+# The actual source is mounted at runtime via -v, so this layer is just warming
+# the module cache for faster incremental builds.
+WORKDIR /workspace
+COPY go.mod go.sum* ./
+RUN go mod download || true
+
+# The Makefile mounts the project directory at /workspace and runs go build.
+# Nothing else needed here.
