@@ -320,3 +320,143 @@ imagesRouter.openapi(webhookRoute, async (c) => {
     );
   }
 });
+
+// ── POST /images/upload ─────────────────────────────────────────────
+// Server-side proxy upload for testing from Swagger UI.
+// Accepts a file via multipart/form-data, uploads raw binary to S3,
+// which then triggers the Lambda optimization pipeline.
+
+const DirectUploadResponseSchema = z
+  .object({
+    fileKey: z.string().openapi({ example: "uploads/a0b1c2-d3e4-f5g6.png" }),
+    bucket: z.string().openapi({ example: "agachadeats-raw-assets-7552121" }),
+    message: z.string().openapi({ example: "File uploaded to S3. Lambda will process it shortly." }),
+  })
+  .openapi("DirectUploadResponse");
+
+const directUploadRoute = createRoute({
+  method: "post",
+  path: "/upload",
+  tags: ["Images"],
+  summary: "Upload an image file directly, only to test Lambda",
+  description:
+    "Server-side proxy upload — accepts a file via multipart form, " +
+    "uploads the raw binary to S3 with entity metadata, and returns the file key. " +
+    "The S3 upload triggers the Lambda optimizer automatically.",
+  request: {
+    query: z.object({
+      entityType: z
+        .enum(ALLOWED_ENTITY_TYPES)
+        .openapi({
+          param: { name: "entityType", in: "query" },
+          example: "restaurant",
+          description: "The type of entity this image belongs to",
+        }),
+      entityId: z
+        .string()
+        .regex(/^\d+$/, "Must be a numeric ID")
+        .openapi({
+          param: { name: "entityId", in: "query" },
+          example: "1",
+          description: "The numeric ID of the entity this image belongs to",
+        }),
+    }),
+    body: {
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            file: z
+              .any()
+              .openapi({ type: "string", format: "binary", description: "The image file to upload" }),
+          }),
+        },
+      },
+      required: true,
+      description: "Image file as multipart/form-data",
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: DirectUploadResponseSchema },
+      },
+      description: "File uploaded to S3 successfully",
+    },
+    400: {
+      content: { "application/json": { schema: ErrorSchema } },
+      description: "Invalid file or parameters",
+    },
+    500: {
+      content: { "application/json": { schema: ErrorSchema } },
+      description: "S3 upload failed",
+    },
+  },
+});
+
+imagesRouter.openapi(directUploadRoute, async (c) => {
+  const { entityType, entityId } = c.req.valid("query");
+
+  // Parse the multipart body to get the file
+  const body = await c.req.parseBody();
+  const file = body["file"];
+
+  if (!file || !(file instanceof File)) {
+    return c.json({ error: "No file provided. Upload a file in the 'file' field." }, 400);
+  }
+
+  // Validate MIME type
+  const contentType = file.type.toLowerCase();
+  if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+    return c.json(
+      {
+        error: `Unsupported file type '${file.type}'. Allowed: ${ALLOWED_MIME_TYPES.join(", ")}`,
+      },
+      400
+    );
+  }
+
+  // Determine extension from MIME type
+  let extension = "jpg";
+  if (contentType.includes("png")) extension = "png";
+  else if (contentType.includes("gif")) extension = "gif";
+  else if (contentType.includes("webp")) extension = "webp";
+
+  const uniqueFileName = `${crypto.randomUUID()}.${extension}`;
+  const fileKey = `uploads/${uniqueFileName}`;
+  const bucketName = process.env.AWS_S3_BUCKET_NAME || "agachadeats-raw-assets-7552121";
+
+  try {
+    // Read the file as raw binary
+    const fileBuffer = await file.arrayBuffer();
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: fileKey,
+      Body: new Uint8Array(fileBuffer),
+      ContentType: contentType,
+      Metadata: {
+        "entity-type": entityType,
+        "entity-id": entityId,
+      },
+    });
+
+    await s3Client.send(command);
+
+    console.log(`✓ Uploaded ${fileKey} (${file.size} bytes, ${contentType}) for ${entityType}:${entityId}`);
+
+    return c.json(
+      {
+        fileKey,
+        bucket: bucketName,
+        message: "File uploaded to S3. Lambda will process it shortly.",
+      },
+      200
+    );
+  } catch (error: any) {
+    console.error("Failed to upload file to S3:", error);
+    return c.json(
+      { error: "S3 upload failed: " + (error.message || String(error)) },
+      500
+    );
+  }
+});
