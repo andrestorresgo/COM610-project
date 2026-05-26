@@ -1,0 +1,55 @@
+# Builds the image-optimizer Lambda binary for x86_64 Linux with CGO (libwebp).
+# Trigger manually from the Actions tab → "Build Lambda Image Optimizer" → Run workflow.
+# Download the deployment.zip artifact from the completed run and upload it to Lambda manually.
+
+name: Build Lambda Image Optimizer
+
+on:
+  workflow_dispatch: # Manual trigger only
+
+jobs:
+  build:
+    name: Compile & Package
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: infra/lambda-image-optimizer
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install libwebp dev headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebp-dev
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: infra/lambda-image-optimizer/go.mod
+          cache-dependency-path: infra/lambda-image-optimizer/go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build bootstrap binary
+        run: |
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+            go build -tags lambda.norpc -ldflags="-s -w" -o bootstrap .
+
+      - name: Verify binary
+        run: |
+          file bootstrap
+          ls -lh bootstrap
+
+      - name: Package deployment.zip
+        run: zip -j deployment.zip bootstrap
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-deployment
+          path: infra/lambda-image-optimizer/deployment.zip
+          retention-days: 30
