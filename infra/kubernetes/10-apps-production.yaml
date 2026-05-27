@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hono-core-prod
+  namespace: delivery-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hono-core-real
+  template:
+    metadata:
+      labels:
+        app: hono-core-real
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/role: worker-compute
+      containers:
+        - name: hono-api
+          image: docker.io/andrestorresgo/agachadeats-core-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+          # Clean, decoupled environment injection using your generated resources
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              cpu: "100m"
+            limits:
+              cpu: "200m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-tracking-prod
+  namespace: delivery-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-tracking-real
+  template:
+    metadata:
+      labels:
+        app: go-tracking-real
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/role: worker-compute
+      containers:
+        - name: go-api
+          image: docker.io/andrestorresgo/agachadeats-tracking-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          # Clean, decoupled environment injection using your generated resources
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              cpu: "100m"
+            limits:
+              cpu: "200m"

@@ -4,10 +4,8 @@ metadata:
   name: platform-ingress
   namespace: delivery-platform
 spec:
-  # THE MODERN FIX: Explicitly binds to K3s's built-in Traefik engine natively
   ingressClassName: traefik
   rules:
-    # 1. Routing rule for the Core API (Hono)
     - host: api.localhost
       http:
         paths:
@@ -18,7 +16,6 @@ spec:
                 name: hono-core-service
                 port:
                   number: 3000
-    # 2. Routing rule for the Tracking API (Go WebSockets)
     - host: tracking.localhost
       http:
         paths:

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hono-core-service
+  namespace: delivery-platform
+spec:
+  selector:
+    app: hono-core-real # Crucial: Point away from the test label to your live production bundle
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000   # Your real Bun application port
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-tracking-service
+  namespace: delivery-platform
+spec:
+  selector:
+    app: go-tracking-real # Crucial: Point away from the test label to your live production bundle
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080   # Your real Go application port
+  type: ClusterIP
