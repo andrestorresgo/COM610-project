@@ -11,6 +11,14 @@ export const imagesRouter = new OpenAPIHono({
   defaultHook: customValidationHook,
 });
 
+// Capture raw request body specifically for /webhook before validation consumes the stream
+imagesRouter.use("/webhook", async (c, next) => {
+  const rawBody = await c.req.raw.clone().text();
+  c.set("rawBody", rawBody);
+  await next();
+});
+
+
 // ── Whitelist & Input Validation ────────────────────────────────────
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -241,7 +249,7 @@ imagesRouter.openapi(webhookRoute, async (c) => {
     }
 
     // Read raw body for HMAC verification
-    const rawBody = await c.req.raw.clone().text();
+    const rawBody = c.get("rawBody") || "";
     const key = await crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode(webhookSecret),

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,8 +15,12 @@ import (
 )
 
 func TestServeWs(t *testing.T) {
-	// Establish connection to local Redis container (exposed on port 6379)
-	redisURL := "redis://localhost:6379"
+	// Use REDIS_URL env var so this test works both inside the Docker network
+	// (where Redis is at redis:6379) and on a bare host (localhost:6379).
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+	}
 	redisStore, err := cache.NewRedisStore(redisURL)
 	if err != nil {
 		t.Skipf("Skipping integration test: Redis not accessible on localhost:6379: %v", err)
