@@ -13,7 +13,7 @@ spec:
       labels:
         app: hono-core
     spec:
-      # CRITICAL: Forces this stateless container onto your worker compute node (server-242)
+      # (server-242)
       nodeSelector:
         topology.kubernetes.io/role: worker-compute
       containers:
@@ -24,25 +24,24 @@ spec:
           env:
             - name: MESSAGE
               value: "Hello from Hono Core API Mock on Server-242!"
-          # ADD THIS: Gives the HPA a baseline threshold to measure scaling percentages
           resources:
             requests:
-              cpu: "100m"     # 100 milli-cores (10% of a single CPU core)
+              cpu: "100m"
             limits:
               cpu: "200m"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: hono-core-service # Must match the exact name used in your Ingress manifest
+  name: hono-core-service
   namespace: delivery-platform
 spec:
   selector:
     app: hono-core
   ports:
     - protocol: TCP
-      port: 3000       # The external port Traefik is looking for
-      targetPort: 8080 # The internal port the container listens on
+      port: 3000
+      targetPort: 8080
   type: ClusterIP
 ---
 apiVersion: apps/v1
@@ -60,7 +59,7 @@ spec:
       labels:
         app: go-tracking
     spec:
-      # CRITICAL: Forces this stateless container onto your worker compute node (server-242)
+      # (server-242)
       nodeSelector:
         topology.kubernetes.io/role: worker-compute
       containers:
@@ -71,7 +70,6 @@ spec:
           env:
             - name: MESSAGE
               value: "Hello from Go Tracking API Mock on Server-242!"
-          # ADD THIS: Gives the HPA a baseline threshold to measure scaling percentages
           resources:
             requests:
               cpu: "100m"
@@ -81,13 +79,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: go-tracking-service # Must match the exact name used in your Ingress manifest
+  name: go-tracking-service
   namespace: delivery-platform
 spec:
   selector:
     app: go-tracking
   ports:
     - protocol: TCP
-      port: 8080       # The external port Traefik is looking for
-      targetPort: 8080 # The internal port the container listens on
+      port: 8080
+      targetPort: 8080
   type: ClusterIP

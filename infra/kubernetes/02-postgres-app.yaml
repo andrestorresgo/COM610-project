@@ -13,7 +13,7 @@ spec:
       labels:
         app: postgres
     spec:
-      # CRITICAL: Forces this database pod onto your master infrastructure node (server-241)
+      # (server-241)
       nodeSelector:
         topology.kubernetes.io/role: master-infra
       containers:
@@ -31,7 +31,6 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
-          # Resiliency: Ensures the cluster doesn't route traffic here until Postgres is completely ready
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "core_admin", "-d", "delivery_db"]

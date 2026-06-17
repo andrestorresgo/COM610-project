@@ -13,20 +13,18 @@ spec:
       labels:
         app: redis
     spec:
-      # CRITICAL: Pins the cache to your master infrastructure node (server-241)
+      # (server-241)
       nodeSelector:
         topology.kubernetes.io/role: master-infra
       containers:
         - name: redis
           image: redis:7-alpine
-          # Enforce persistence logging to the attached volume
           command: ["redis-server", "--appendonly", "yes"]
           ports:
             - containerPort: 6379
           volumeMounts:
             - name: redis-storage
               mountPath: /data
-          # Resiliency: Ensure cache port is active before accepting connections
           readinessProbe:
             tcpSocket:
               port: 6379

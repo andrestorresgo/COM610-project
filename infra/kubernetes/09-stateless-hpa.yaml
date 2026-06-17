@@ -7,16 +7,16 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: hono-core-test  # Targets your Hono application layer
+    name: hono-core-test
   minReplicas: 1
-  maxReplicas: 5          # Allows scaling up to 5 pods under heavy load
+  maxReplicas: 5
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 50 # Scales up if average CPU utilization crosses 50%
+          averageUtilization: 50
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -27,7 +27,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: go-tracking-test # Targets your Go application layer
+    name: go-tracking-test
   minReplicas: 1
   maxReplicas: 5
   metrics:

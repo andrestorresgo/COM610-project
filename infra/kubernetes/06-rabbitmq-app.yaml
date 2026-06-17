@@ -13,7 +13,7 @@ spec:
       labels:
         app: rabbitmq
     spec:
-      # CRITICAL: Pins the broker to your master infrastructure node (server-241)
+      # (server-241)
       nodeSelector:
         topology.kubernetes.io/role: master-infra
       containers:
@@ -32,7 +32,6 @@ spec:
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq
-          # Resiliency: RabbitMQ can take a moment to boot. We wait 15s before probing.
           readinessProbe:
             tcpSocket:
               port: 5672
