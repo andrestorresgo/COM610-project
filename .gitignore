@@ -50,6 +50,7 @@ coverage/
 # Temporary files
 tmp/
 temp/
+client/
 
 # Docs directory
 docs/
